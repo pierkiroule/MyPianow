@@ -45,17 +45,19 @@ test("desktop studio preserves independent samples, USB PCM, MIDI and portable p
     .click();
   await navigation.getByRole("button", { name: /^CREATE/ }).click();
   await page.locator(".track-detail summary").first().click();
-  await page
-    .getByLabel("Importer sample 1", { exact: true })
-    .setInputFiles({
-      name: "qa-sample.wav",
-      mimeType: "audio/wav",
-      buffer: sampleWav(),
-    });
+  await page.getByLabel("Importer sample 1", { exact: true }).setInputFiles({
+    name: "qa-sample.wav",
+    mimeType: "audio/wav",
+    buffer: sampleWav(),
+  });
   for (const step of [1, 5, 9, 13])
     await page
       .getByRole("button", { name: `qa-sample.wav, pas ${step}`, exact: true })
       .click();
+  await page.screenshot({
+    path: testInfo.outputPath("create.png"),
+    fullPage: true,
+  });
   await page
     .getByRole("button", { name: "Lire l’accompagnement", exact: true })
     .click();
@@ -116,6 +118,10 @@ test("desktop studio preserves independent samples, USB PCM, MIDI and portable p
   await expect(
     page.getByRole("button", { name: "Exporter WAV", exact: true }),
   ).toBeEnabled({ timeout: 20000 });
+  await page.screenshot({
+    path: testInfo.outputPath("master.png"),
+    fullPage: true,
+  });
   const midiDownload = page.waitForEvent("download");
   await page
     .getByRole("button", { name: "Exporter le MIDI synchronisé", exact: true })
@@ -150,6 +156,7 @@ test("desktop studio preserves independent samples, USB PCM, MIDI and portable p
       ),
     )
     .toBe(true);
+  await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({
     path: testInfo.outputPath("desktop-studio.png"),
     fullPage: true,

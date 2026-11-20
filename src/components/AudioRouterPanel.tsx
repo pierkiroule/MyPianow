@@ -139,7 +139,7 @@ export function AudioRouterPanel({
         ? "Joue pendant 30 secondes. Test de stabilité audio sans émission de signal."
         : kind === "piano"
           ? "Joue du piano pendant 5 secondes. Aucun signal n’est diffusé par l’app."
-          : "Ne joue pas pendant 6 secondes. Deux signaux doux sont émis, puis leur retour est analysé.",
+          : "Attends la fin des résonances, puis ne joue pas pendant 6 secondes. Deux signaux doux sont émis, puis leur retour est analysé.",
     );
     try {
       const clip = await current.record(kind);

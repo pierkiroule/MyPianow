@@ -184,6 +184,7 @@ export default function App() {
     }
     setTab("studio");
     setWorkspace(next);
+    window.scrollTo(0, 0);
   }
   useEffect(() => {
     player.current?.pause();
@@ -282,6 +283,7 @@ export default function App() {
   }, [mixSource, raw]);
   useEffect(() => {
     piano.onChange = setPianoState;
+    void scan();
     recoverTakes()
       .then(refresh)
       .catch((e) => setNotice("Stockage local indisponible : " + message(e)));
@@ -352,6 +354,7 @@ export default function App() {
     }
   }
   async function selectTake(take: Take) {
+    window.scrollTo(0, 0);
     const id = ++loadId.current;
     previewState.current = { time: 0, resume: false };
     player.current?.pause();
@@ -634,7 +637,7 @@ export default function App() {
           href="#"
           onClick={(e) => {
             e.preventDefault();
-            setTab("studio");
+            navigate("play");
           }}
         >
           My<span>Pianow</span>
@@ -1809,7 +1812,7 @@ export default function App() {
             {takes.length === 0 ? (
               <div className="card empty">
                 <h2>Votre prochaine idée a sa place ici.</h2>
-                <button className="primary" onClick={() => setTab("studio")}>
+                <button className="primary" onClick={() => navigate("play")}>
                   Ouvrir le studio
                 </button>
               </div>

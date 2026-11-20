@@ -1,5 +1,5 @@
 import { installUsbFixture } from "./usbFixture";
-import { test } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 import assert from "node:assert/strict";
 // Real AudioWorklet/Web Audio, simulated USB source and simulated hardware loopback.
 // This never requests a real microphone and does not validate Yamaha/Android hardware.
@@ -34,6 +34,10 @@ test("isolated USB route, absent/present loopback, downloads and emergency stop"
     .getByRole("button", { name: "WAV piano USB", exact: true })
     .waitFor({ timeout: 10000 });
   await page.evaluate(() => (window.__qaContext.__qaPiano.gain.value = 0));
+  // Wait for the simulated piano already buffered in the stream to drain.
+  await expect(
+    page.getByRole("meter", { name: "Entrée USB du diagnostic", exact: true }),
+  ).toHaveAttribute("aria-valuenow", "0");
   await page
     .getByRole("button", {
       name: "2. Tester émission et retour · 6 s",
@@ -67,6 +71,10 @@ test("isolated USB route, absent/present loopback, downloads and emergency stop"
     })
     .waitFor();
   await page.evaluate(() => (window.__qaContext.__qaPiano.gain.value = 0));
+  // Wait for the simulated piano already buffered in the stream to drain.
+  await expect(
+    page.getByRole("meter", { name: "Entrée USB du diagnostic", exact: true }),
+  ).toHaveAttribute("aria-valuenow", "0");
   await page
     .getByRole("button", {
       name: "2. Tester émission et retour · 6 s",
