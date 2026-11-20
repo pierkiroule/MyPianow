@@ -3,10 +3,13 @@ import {
   AudioRouter,
   type RouterInfo,
   type RouteRecording,
-} from "../audio/AudioRouter";
+} from "../engine/routing/AudioRouter";
 import { encodeWav, download } from "../lib/wav";
 
 type Props = {
+  outputId?: string;
+  onOutput?: (value: string) => void;
+  midiEvidence?: () => unknown;
   device?: MediaDeviceInfo;
   disabled: boolean;
   onBusy: (busy: boolean) => void;
@@ -19,6 +22,9 @@ export function AudioRouterPanel({
   disabled,
   onBusy,
   onPrepare,
+  midiEvidence,
+  outputId,
+  onOutput,
 }: Props) {
   const router = useRef<AudioRouter | null>(null);
   const generation = useRef(0);
@@ -31,10 +37,11 @@ export function AudioRouterPanel({
   const [output, setOutput] = useState("");
   const [info, setInfo] = useState<RouterInfo | null>(null);
   const [notice, setNotice] = useState(
-    "Vérifier l’entrée USB, la sortie du téléphone et l’éventuel retour des boucles.",
+    "Vérifier l’entrée USB, la sortie du PC et l’éventuel retour des boucles.",
   );
   const [peak, setPeak] = useState(0);
   const [piano, setPiano] = useState<RouteRecording | null>(null);
+  const [stability, setStability] = useState<RouteRecording | null>(null);
   const [duplex, setDuplex] = useState<RouteRecording | null>(null);
   const [heard, setHeard] = useState(false);
   const [pianoHeard, setPianoHeard] = useState(false);
@@ -42,6 +49,9 @@ export function AudioRouterPanel({
   const canSelect =
     typeof AudioContext !== "undefined" &&
     "setSinkId" in AudioContext.prototype;
+  useEffect(() => {
+    if (phase === "idle" && outputId !== undefined) setOutput(outputId);
+  }, [outputId, phase]);
   const open = phase !== "idle";
   const running = phase === "recording" || phase === "testing";
   useEffect(
@@ -83,6 +93,7 @@ export function AudioRouterPanel({
     busyCallback.current(true);
     setPhase("opening");
     setInfo(null);
+    setStability(null);
     setPiano(null);
     setDuplex(null);
     setHeard(false);
@@ -119,20 +130,23 @@ export function AudioRouterPanel({
     if (kind === "duplex") {
       setHeard(false);
       setDuplex(null);
-    } else {
+    } else if (kind === "piano") {
       setPiano(null);
       setPianoHeard(false);
     }
     setNotice(
-      kind === "piano"
-        ? "Joue du piano pendant 5 secondes. Aucun signal n’est diffusé par l’app."
-        : "Ne joue pas pendant 6 secondes. Deux signaux doux sont émis, puis leur retour est analysé.",
+      kind === "stability"
+        ? "Joue pendant 30 secondes. Test de stabilité audio sans émission de signal."
+        : kind === "piano"
+          ? "Joue du piano pendant 5 secondes. Aucun signal n’est diffusé par l’app."
+          : "Ne joue pas pendant 6 secondes. Deux signaux doux sont émis, puis leur retour est analysé.",
     );
     try {
       const clip = await current.record(kind);
       if (token !== generation.current) return;
       if (kind === "piano") setPiano(clip);
-      else setDuplex(clip);
+      else if (kind === "duplex") setDuplex(clip);
+      else setStability(clip);
       setNotice(
         clip.analysis?.reason ||
           "Test piano reçu. Ferme le diagnostic puis écoute le WAV pour confirmer sa source.",
@@ -148,7 +162,7 @@ export function AudioRouterPanel({
     try {
       download(
         await encodeWav(reference ? clip.reference! : clip.pcm),
-        `mypianow-test-${reference ? "reference-emise" : clip.kind === "piano" ? "piano-usb" : "retour-usb"}.wav`,
+        `mypianow-test-${reference ? "reference-emise" : clip.kind === "piano" ? "piano-usb" : clip.kind === "stability" ? "stabilite" : "retour-usb"}.wav`,
       );
     } catch (error) {
       setNotice(errorText(error));
@@ -169,6 +183,8 @@ export function AudioRouterPanel({
             gaps: clip.gaps,
             referenceOffsetSeconds: clip.referenceOffsetSeconds,
             analysis: clip.analysis,
+            stereo: clip.stereo,
+            elapsedMs: clip.elapsedMs,
           }
         : null;
     download(
@@ -176,7 +192,16 @@ export function AudioRouterPanel({
         [
           JSON.stringify(
             {
-              version: 1,
+              version: 2,
+              midi: midiEvidence?.(),
+              tested: {
+                input: !!piano,
+                duplex: !!duplex,
+                stability: !!stability,
+                midi: "observations et événements dans le rapport",
+                hardwareOutput: "déclaration utilisateur seulement",
+              },
+              stability: summarize(stability),
               agent: navigator.userAgent,
               info,
               piano: summarize(piano),
@@ -223,9 +248,12 @@ export function AudioRouterPanel({
           id="router-output"
           value={output}
           disabled={open || disabled || !canSelect}
-          onChange={(event) => setOutput(event.target.value)}
+          onChange={(event) => {
+            setOutput(event.target.value);
+            onOutput?.(event.target.value);
+          }}
         >
-          <option value="">Sortie système · choisie par Android</option>
+          <option value="">Sortie système · choisie par le système</option>
           {outputs.map((d) => (
             <option key={d.deviceId} value={d.deviceId}>
               {d.label || "Sortie autorisée"}
@@ -300,6 +328,35 @@ export function AudioRouterPanel({
           2. Tester émission et retour · 6 s
         </button>
       </div>
+      <button
+        disabled={phase !== "ready" || saving}
+        onClick={() => record("stability")}
+      >
+        3. Tester la stabilité · 30 s
+      </button>
+      {[piano, duplex, stability]
+        .filter((clip): clip is RouteRecording => !!clip)
+        .map((clip) => (
+          <p className="small" key={clip.kind}>
+            {clip.kind} :{" "}
+            {(clip.pcm.channels[0].length / clip.pcm.rate).toFixed(2)} s audio ·{" "}
+            {clip.gaps} discontinuité(s) d’horloge · délai de livraison total{" "}
+            {(clip.elapsedMs || 0).toFixed(0)} ms.
+            {clip.stereo && (
+              <>
+                {" "}
+                Niveau G {clip.stereo.leftDb.toFixed(1)} dBFS · D{" "}
+                {clip.stereo.rightDb?.toFixed(1) ?? "absent"} · corrélation{" "}
+                {clip.stereo.correlation?.toFixed(3) ?? "non mesurable"}.{" "}
+                {clip.stereo.silent
+                  ? "Signal silencieux : arrivée audio non confirmée."
+                  : clip.stereo.duplicated
+                    ? "Canaux probablement dupliqués ; vraie stéréo non confirmée."
+                    : "Activité observée ; vérifier le contenu et l’image stéréo à l’écoute."}
+              </>
+            )}
+          </p>
+        ))}
       <p className="small" role="status">
         {notice}
       </p>
@@ -360,6 +417,14 @@ export function AudioRouterPanel({
               WAV des signaux émis
             </button>
           </>
+        )}
+        {stability && (
+          <button
+            disabled={running || saving}
+            onClick={() => exportClip(stability)}
+          >
+            WAV stabilité
+          </button>
         )}
         {info && (
           <button disabled={running} onClick={exportReport}>

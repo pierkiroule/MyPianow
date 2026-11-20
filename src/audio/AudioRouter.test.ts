@@ -1,3 +1,4 @@
+vi.mock("../engine/analysis/probeWorker",()=>({stereoInWorker:async()=>({leftDb:-10,rightDb:-10,correlation:1,duplicated:true,silent:false}),probeInWorker:async()=>({verdict:"inconclusive"})}));
 import { beforeEach, afterEach, describe, it, expect, vi } from "vitest";
 import { AudioRouter } from "./AudioRouter";
 class Node extends EventTarget {
@@ -157,7 +158,7 @@ describe("isolated USB audio routing", () => {
     track.getSettings = () => ({ deviceId: "usb", channelCount: 1 });
     await expect(
       new AudioRouter().open(device, "unavailable-output"),
-    ).rejects.toThrow("Android choisir");
+    ).rejects.toThrow("système choisir");
     expect(Context.instances.every((ctx) => ctx.state === "closed")).toBe(true);
   });
   it("stops on device changes and ignores late worklet callbacks", async () => {

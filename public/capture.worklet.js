@@ -7,7 +7,11 @@ class UsbCapture extends AudioWorkletProcessor {
     this.n = 0;
     this.total = 0;
     this.port.onmessage = (e) => {
-      if (e.data === "start") {
+      if (e.data === "start" || e.data?.type === "start") {
+        this.maxSeconds = Math.max(
+          30,
+          Math.min(600, Number(e.data.maxSeconds) || 180),
+        );
         this.active = true;
         this.n = 0;
         this.total = 0;
@@ -43,14 +47,14 @@ class UsbCapture extends AudioWorkletProcessor {
     const n = Math.min(
       a[0].length,
       4096 - this.n,
-      Math.round(sampleRate * 180) - this.total,
+      Math.round(sampleRate * this.maxSeconds) - this.total,
     );
     for (let c = 0; c < a.length; c++)
       this.parts[c].set(a[c].subarray(0, n), this.n);
     this.n += n;
     this.total += n;
     if (this.n === 4096) this.flush();
-    if (this.total >= Math.round(sampleRate * 180)) {
+    if (this.total >= Math.round(sampleRate * this.maxSeconds)) {
       this.stop();
       this.port.postMessage({ limit: true });
     }

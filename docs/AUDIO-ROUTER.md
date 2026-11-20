@@ -1,6 +1,6 @@
-# AudioRouter — diagnostic USB avant LoopPad
+# AudioRouter — Diagnostic Studio USB
 
-Ce module vérifie les chemins Web Audio sans ajouter de monitoring logiciel du piano. Il ne contient pas encore de LoopPad, ne pilote pas le réglage Audio Loopback et ne prouve pas le routage physique à lui seul.
+Ce module vérifie les chemins Web Audio sans ajouter de monitoring logiciel du piano. Ce module de diagnostic est distinct du LoopPad de CREATE ; il ne pilote pas le réglage Audio Loopback et ne prouve pas le routage physique à lui seul.
 
 ## Utilisation
 
@@ -34,10 +34,10 @@ Résultats :
 - **Aucun retour détecté** : aucun signal correspondant au seuil et dans la fenêtre du test ; ce résultat seul ne valide pas l’écoute sur le piano, l’absence de retour plus faible/plus long, ni les réglages futurs.
 - **Indéterminé** : un seul signal ressemble au test, le fond est trop fort, la capture sature, est trop courte ou présente des discontinuités. Recommencer au calme.
 
-Deux canaux déclarés ne démontrent pas une vraie stéréo indépendante. Un mix mono matériel, un retour acoustique si la source est mal exposée par le système, un routage Android modifié ou une réverbération matérielle peuvent modifier les résultats. L’app ne peut pas prouver le périphérique physique uniquement à partir de son nom déclaré.
+Deux canaux déclarés ne démontrent pas une vraie stéréo indépendante. Un mix mono matériel, un retour acoustique si la source est mal exposée par le système, un routage le système modifié ou une réverbération matérielle peuvent modifier les résultats. L’app ne peut pas prouver le périphérique physique uniquement à partir de son nom déclaré.
 
 ## Validation
 
-Les tests unitaires exécutent le vrai code des deux AudioWorklets en VM, contrôlent le graphe de connexion, l’exclusivité USB, l’arrêt, la séparation des données et la corrélation synthétique à 44,1/48 kHz. Le test Playwright `npm run test:browser` utilise un vrai Chromium/Web Audio/AudioWorklet, une source USB simulée et un retour matériel simulé. Il est exécuté séparément dans GitHub Actions. Aucun de ces tests ne remplace l’essai CLP-825 / Android.
+Les tests unitaires exécutent le vrai code des deux AudioWorklets en VM, contrôlent le graphe de connexion, l’exclusivité USB, l’arrêt, la séparation des données et la corrélation synthétique à 44,1/48 kHz. Le test Playwright `npm run test:browser` utilise un vrai Chromium/Web Audio/AudioWorklet, une source USB simulée et un retour matériel simulé. Il est exécuté séparément dans GitHub Actions. Aucun de ces tests ne remplace l’essai CLP-825 / le système.
 
 Sources techniques : [AudioContext.setSinkId](https://developer.mozilla.org/en-US/docs/Web/API/AudioContext/setSinkId), [contraintes de capture](https://developer.mozilla.org/en-US/docs/Web/API/Media_Capture_and_Streams_API/Constraints), manuel Yamaha ci-dessus.

@@ -1,5 +1,14 @@
+import type { LoopProject } from "../engine/loopPad/types";
 export type Pcm = { channels: Float32Array[]; rate: number };
-export type Preset = "naturel" | "feutre" | "ample";
+export type Preset =
+  | "naturel"
+  | "feutre"
+  | "ample"
+  | "studio"
+  | "intime"
+  | "jazz"
+  | "concert"
+  | "cinematique";
 export type EqBand = {
   type: "lowshelf" | "peaking" | "highshelf";
   frequency: number;
@@ -19,6 +28,8 @@ export type Fx = {
   compression: number;
   room: number;
   cutoff: number;
+  warmth?: number;
+  localEq?: { time: number; gain: number }[];
 };
 export type Take = {
   id: string;
@@ -40,6 +51,11 @@ export type Take = {
     offsetMs: number;
     interrupted?: boolean;
   };
+  accompaniment?: {
+    project: LoopProject;
+    offsetSeconds: number;
+    include: boolean;
+  };
   native?: { model: string; effect?: number; depth?: number };
   fx: Fx;
   preset: Preset;
@@ -50,7 +66,7 @@ export type Chunk = {
   channels: ArrayBuffer[];
   frames: number;
 };
-export const PRESETS: Record<Preset, Fx> = {
+const legacy: Record<"naturel" | "feutre" | "ample", Fx> = {
   naturel: {
     bass: 0,
     mid: 0,
@@ -80,6 +96,28 @@ export const PRESETS: Record<Preset, Fx> = {
   },
 };
 
+export const PRESETS: Record<Preset, Fx> = {
+  ...legacy,
+  studio: { ...legacy.naturel, compression: 18, treble: 0.5 },
+  intime: { ...legacy.feutre, room: 7, warmth: 8 },
+  jazz: {
+    ...legacy.naturel,
+    bass: 1,
+    mid: -0.5,
+    treble: -2,
+    compression: 18,
+    room: 7,
+    warmth: 12,
+  },
+  concert: { ...legacy.ample, room: 18, compression: 15 },
+  cinematique: {
+    ...legacy.ample,
+    treble: -2,
+    room: 25,
+    cutoff: 12000,
+    warmth: 7,
+  },
+};
 for (const [preset, fx] of Object.entries(PRESETS)) {
   fx.bands = [
     { type: "lowshelf", frequency: 120, q: 0.707, gain: fx.bass },
@@ -89,7 +127,11 @@ for (const [preset, fx] of Object.entries(PRESETS)) {
     { type: "highshelf", frequency: 5000, q: 0.707, gain: fx.treble },
   ];
   fx.bass = fx.mid = fx.treble = 0;
-  fx.width = preset === "ample" ? 120 : preset === "feutre" ? 90 : 100;
+  fx.width = ["ample", "concert", "cinematique"].includes(preset)
+    ? 120
+    : ["feutre", "intime"].includes(preset)
+      ? 90
+      : 100;
   fx.autoLevel = true;
   fx.targetRms = preset === "ample" ? -18 : -20;
   fx.ceiling = -1;

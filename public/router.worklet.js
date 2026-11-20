@@ -14,7 +14,7 @@ class RouteCapture extends AudioWorkletProcessor {
         this.nextFrame = null;
         this.gaps = 0;
         this.limit = Math.round(
-          sampleRate * Math.min(8, Math.max(1, e.data.seconds)),
+          sampleRate * Math.min(60, Math.max(1, e.data.seconds)),
         );
       }
       if (e.data.type === "cancel") {

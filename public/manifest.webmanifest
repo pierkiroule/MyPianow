@@ -1,8 +1,8 @@
 {
   "id": "./",
-  "name": "MyPianow •° — Studio piano",
+  "name": "MyPianow •° — Desktop Studio",
   "short_name": "MyPianow",
-  "description": "Enregistrement USB et finition sonore, sur votre appareil.",
+  "description": "Studio piano local : jouer, composer, enregistrer et masteriser sur PC.",
   "lang": "fr",
   "start_url": "./",
   "scope": "./",

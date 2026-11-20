@@ -9,7 +9,24 @@ export default defineConfig({
     url: "http://127.0.0.1:4173",
     reuseExistingServer: !process.env.CI,
   },
+  workers: process.env.CI ? 1 : undefined,
   projects: [
+    {
+      name: "desktop-chrome",
+      use: {
+        ...devices["Desktop Chrome"],
+        channel: "chrome",
+        viewport: { width: 1366, height: 900 },
+      },
+    },
+    {
+      name: "desktop-edge",
+      use: {
+        ...devices["Desktop Edge"],
+        channel: "msedge",
+        viewport: { width: 1366, height: 900 },
+      },
+    },
     {
       name: "mobile-chromium",
       use: { ...devices["Pixel 7"], browserName: "chromium" },

@@ -1,68 +1,63 @@
-# MyPianow •°
+# MyPianow •° — Desktop Studio
 
-Studio piano local en React, TypeScript et Vite. Pilotage de la réverbération native du Yamaha **CLP-825**, capture de son audio USB, bibliothèque de prises et finition après enregistrement.
+**Branchez votre piano. Jouez. Créez. Masterisez. Partagez.**
+
+PWA React + Vite + TypeScript, prioritairement pour PC portable Windows 10/11 et Chrome/Edge récents. Audio, MIDI, projets et traitements restent sur l’appareil. Aucun serveur applicatif, compte, abonnement ou modèle neuronal. Le responsive mobile est conservé.
 
 ## Démarrer
 
-Node.js 24 recommandé.
+Node.js 24 recommandé : `npm ci`, puis `npm run dev`. `npm test` et `npm run build` vérifient le code ; `npm run preview` sert `dist/`. HTTPS est nécessaire hors localhost. Le build produit un site statique, avec configuration Vercel et cache PWA versionné. `VITE_BASE_PATH=/MyPianow/ npm run build` permet un sous-répertoire.
 
-```sh
-npm ci
-npm run dev
-```
+Le premier build récupère le source exact de l’encodeur MP3 pour ses obligations LGPL ; les suivants utilisent le cache. Cette étape de construction ne concerne pas les enregistrements des utilisateurs et aucun média utilisateur n’est envoyé.
 
-Les appareils MIDI et audio exigent HTTPS en dehors de `localhost`. Le téléphone doit accéder à une URL HTTPS, pas simplement à l’IP HTTP du serveur Vite.
+## Les espaces
 
-```sh
-npm test
-npm run build
-npm run preview
-```
+| Espace                | Disponible dans cette version                                                                                                                                                                                                                                                                                                      |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **PLAY**              | Choix entrée Yamaha/USB par identifiant exact, sortie système/autorisée, capture PCM originale et MIDI facultatif, niveau/crête, durées 3 ou 10 min, réverbération native CLP-825 relue et restaurable.                                                                                                                            |
+| **CREATE**            | Huit pistes de samples importés ou capturés au micro PC, trim non destructif, pads, séquence répétée de 16 pas, tempo/swing, gain/pan/filtre/réverbération par piste, projets locaux et variantes.                                                                                                                                 |
+| **MASTER**            | Six signatures personnalisables, EQ 5 bandes, compression, chaleur harmonique, réverbération, largeur, RMS/plafond, analyse audio/MIDI en worker, proposition prudente ou comparaison numérique de trois variantes, correction locale bornée des graves sous pédale, annuler/rétablir, écoute A/B à RMS rapproché, WAV24/MP3/MIDI. |
+| **Diagnostic Studio** | Entrées/sorties, MIDI observé, capture piano 5 s, test duplex 6 s, stabilité 30 s, activité/corrélation/canaux dupliqués, retour des signaux, latences déclarées et mesures explicitement séparées, WAV et rapport JSON.                                                                                                           |
+| **Mes créations**     | Prises originales, récupération après interruption, réglages persistants, archives complètes `.mypianow`, import en copie et vérification SHA-256 des données audio.                                                                                                                                                               |
 
-Le build produit `dist/`, servi par tout hébergeur statique. Configuration Vercel fournie. Pour un sous-répertoire : `VITE_BASE_PATH=/MyPianow/ npm run build`. Le premier build télécharge le source exact de l’encodeur MP3 pour respecter sa licence ; les builds suivants utilisent le cache local.
+## Piano et accompagnement
 
-## Parcours
+Le piano doit être reconnu par Windows puis exposé au navigateur. L’app accepte les noms USB, Yamaha, Clavinova et Digital Piano, exige l’identifiant exact et vérifie le périphérique réellement ouvert. Si les noms sont masqués, autoriser « Microphone » dans les paramètres du site puis actualiser ; aucune capture de micro par défaut n’est déclenchée pour forcer cette autorisation. Le micro PC de CREATE nécessite sa sélection explicite et ne remplace jamais l’entrée piano.
 
-1. **Avant** : MIDI SysEx, identité CLP-825 et lecture des valeurs ; ambiance native, intensité, restauration des paramètres initiaux. Aucune sonorité CSP n’est envoyée.
-2. **Prise** : entrée audio portant un nom USB, sélection par identifiant exact, sans source par défaut, sans monitoring. Trois minutes par prise. Les blocs PCM sont enregistrés progressivement dans IndexedDB.
-3. **Après** : presets Naturel/Feutré/Ample modifiables, égaliseur paramétrique cinq bandes, largeur stéréo, gain, compression, réverbération additionnelle, niveau automatique RMS et plafond de crête. L’original PCM reste séparé.
-4. **Exporter** : WAV 24 bits original/traité ; MP3 320 kb/s via worker ; partage de fichiers natif si le navigateur le permet, téléchargement sinon. Pour partager un MP3, l’exporter une première fois prépare son fichier.
-5. **Bibliothèque** : prises et paramètres persistés localement, renommage, récupération des blocs validés après interruption, suppression explicite.
+Le piano conserve son écoute directe. L’entrée USB va vers un collecteur silencieux, jamais vers ses enceintes. Les samples utilisent un bus de sortie distinct avec marge et compression de sécurité. Choisir la sortie Yamaha si elle est exposée ; sinon la sortie système reste indiquée comme telle, sans présumer sa destination physique. Un choix explicite qui échoue ne bascule pas silencieusement vers une autre sortie.
 
-## Compatibilité et limites importantes
+**Audio Loopback doit être désactivé** sur le CLP-825 : maintenir DEMO/SONG + PIANO/VOICE, puis Do6. Le diagnostic cherche une réinjection, mais son absence de détection ne garantit pas l’absence permanente de retour. Voir [le guide](docs/AUDIO-ROUTER.md).
 
-- La communication SysEx et le changement audible de réverbération ont été confirmés par l’utilisateur sur un **CLP-825, firmware 1.02**. Le flux monofichier USB/post-traitement a également été déclaré fonctionnel. Cette migration React nécessite une nouvelle validation sur le téléphone.
-- Android/Chrome est la cible initiale. Ne pas promettre la compatibilité Safari/iOS : Web MIDI y est limité/absent. La PWA détecte les API réellement disponibles.
-- **Bluetooth MIDI** : les ports exposés par Android/Chrome peuvent être sélectionnés dans la liste MIDI. Aucun pont BLE GATT propriétaire n’est implémenté ni validé. Si le port n’apparaît pas, utiliser l’USB.
-- **Bluetooth audio** du CLP-825 ne transmet pas la prise vers le téléphone. Yamaha précise que l’enregistrement audio nécessite l’USB. Source : https://data.yamaha.com/files/download/other_assets/8/2293568/CLP-825_owners_manual_En_B0.pdf .
-- La permission navigateur s’appelle « Microphone », y compris pour l’USB. Aucune capture générique n’est utilisée pour obtenir cette permission : si les noms sont masqués, l’utilisateur doit autoriser le site dans Chrome puis actualiser.
-- IndexedDB est un stockage du navigateur, pas une sauvegarde externe. Le mode privé, le nettoyage des données ou une éviction peuvent supprimer les prises. Une demande de stockage persistant est disponible ; exporter les fichiers importants reste nécessaire.
-- En arrière-plan ou après suspension/déconnexion, la prise est arrêtée. Les blocs confirmés sont récupérables ; le dernier bloc non livré peut être perdu. L’app ne promet pas un enregistrement écran verrouillé.
-- L’espace ajouté peut créer une stéréo depuis une prise mono ; élargir une source mono sans espace ne crée pas de vraie stéréo. Le WAV 24 bits n’améliore pas la résolution de l’entrée.
-- La finition utilise une cible **RMS**, pas une normalisation EBU R128/LUFS ; le plafond porte sur les échantillons, pas une mesure true peak suréchantillonnée. Pas de certification « mastering studio ».
-- Le rendu Feutré est une coloration, sans échantillons de piano à feutre et sans imitation garantie d’un artiste.
+Pour superposer piano et boucles : préparer et lancer CREATE, passer à PLAY, enregistrer. La capture partage l’AudioContext du séquenceur et conserve son origine temporelle et une copie de la séquence. Les fichiers des samples restent indépendants. Dans MASTER, **Inclure l’accompagnement** permet de l’ajouter ou de le retirer du rendu ; il est exclu par défaut. Ne pas l’ajouter s’il était déjà présent dans l’USB. Les réglages de la séquence sont figés pendant la lecture/prise.
 
-## Architecture
+## Ce qui est mesuré, et ce qui ne l’est pas
 
-- `src/lib/protocol.ts` : messages et validation SysEx.
-- `src/lib/piano.ts` : transport Web MIDI, identité, lecture, écriture vérifiée, restauration.
-- `src/lib/recorder.ts` et `public/capture.worklet.js` : capture USB silencieuse, verrou entre onglets, blocs progressifs.
-- `src/lib/storage.ts` : IndexedDB, récupération, bibliothèque.
-- `src/lib/effects.ts` : rendu hors ligne, EQ, stéréo, finition.
-- `src/audio/mp3.worker.ts` : encodage MP3 séparé de l’interface.
-- `scripts/build-sw.mjs` : cache PWA versionné, installation et mise à jour explicite.
-- `docs/PROVENANCE.md` : sources du protocole et obligations des composants tiers. **Audit de licences à terminer avant distribution commerciale propriétaire.**
+- L’interface CLP-825 est annoncée 44,1 kHz/24 bits/stéréo par Yamaha ; le navigateur peut exposer un format différent. Les réglages reçus font foi, sans inventer de stéréo ou de résolution. Deux canaux identiques sont signalés dans le diagnostic.
+- L’horloge AudioWorklet sert de référence au MIDI et aux boucles. Les latences d’entrée/sortie physiques, la dérive et le routage Windows doivent être vérifiés sur matériel. Le décalage MIDI est réglable ; l’export MIDI utilise un tempo de référence 120 BPM et conserve les temps absolus (précision de quantification environ 0,52 ms), sans détecter le tempo joué.
+- Le moteur est **algorithmique DSP**, sans IA neuronale. Mesures spectrales indicatives, RMS et crêtes échantillonnées : aucune revendication de mesure LUFS/LRA ou true peak certifiée. Les trois variantes sont comparées selon des contraintes numériques, pas selon un jugement artistique.
+- Le guidage MIDI peut réduire modérément les graves sur certains accords graves sous pédale ; il ne normalise pas toutes les vélocités. Il dépend du calage estimé, à contrôler. L’original reste inchangé.
+- Les effets logiciels sont réversibles. La réverbération native du piano est déjà imprimée dans l’original USB. Aucune voix CSP ou banque de feutres n’est envoyée au CLP-825.
+- CREATE est une première version : une mesure répétée, une voix par piste, samples de 12 s maximum et capture micro de 8 s. Timeline d’arrangement multi-mesures, montage avancé et dessin d’automatisations restent à développer.
+- Le navigateur utilise les périphériques exposés par Windows, sans accès ASIO exclusif. Yamaha documente un pilote USB audio Windows ; aucune garantie universelle « sans pilote ». Le MIDI Bluetooth n’est utilisable que si le système expose un port ; l’audio du piano est capturé par USB.
 
-## Validation
+## Sauvegarde
 
-`npm test` couvre le protocole, le refus des entrées non USB, l’intégrité WAV, l’encodage MP3 effectif, les crêtes/stéréo, les presets, la récupération IndexedDB et le collecteur AudioWorklet. `npm run build` vérifie TypeScript et produit la PWA. Les tests matériels et le partage natif doivent être complétés sur Android/Chrome et le piano.
+IndexedDB v3 ajoute projets et samples sans supprimer les bibliothèques v1/v2. Les blocs audio/MIDI validés sont récupérables après interruption. Mise en veille, masquage, déconnexion ou stockage trop lent interrompent la prise ; le dernier bloc non livré peut être perdu.
 
-L’application ne contient ni compte, ni paiement, ni analytics, ni backend. Elle n’est pas affiliée à Yamaha.
+Exporter `.mypianow` conserve le PCM original, les événements MIDI, les samples référencés, le projet, son calage et les réglages/automatisations DSP. Importer vérifie les longueurs, formats et empreintes audio avant une transaction atomique, avec de nouveaux identifiants. Format documenté dans [ARCHIVE.md](docs/ARCHIVE.md). Limite actuelle : 256 Mo par archive et 16 Mo de métadonnées. Une prise longue stéréo peut approcher cette limite ; les traitements hors ligne nécessitent plusieurs copies audio en mémoire.
 
-### Capture audio + MIDI (P1)
+Le stockage navigateur n’est pas une sauvegarde indépendante. Suppression des données, mode privé ou éviction peuvent supprimer les projets. La demande de conservation persistante existe ; garder aussi des archives hors navigateur. Le projet conserve ses samples même si une prise est supprimée ; le nettoyage d’assets orphelins reste à développer.
 
-L’enregistrement peut conserver les notes, vélocités et pédales du port MIDI choisi en même temps que le PCM USB. Les deux flux sont sauvegardés localement, sans génération de son à partir du MIDI. Une vue de notes, un décalage ajustable et un export JSON permettent le diagnostic. La correspondance des horloges est **estimée**, sans compensation mesurée de la latence matérielle. La vraie stéréo et la capture simultanée restent à valider sur CLP-825/Android. Voir [la feuille de route](docs/ROADMAP.md) pour distinguer les fonctions disponibles du mastering audio/MIDI à développer.
+## Architecture et preuves
 
-### Diagnostic USB avant LoopPad
+- `src/app/StudioApp.tsx` : orchestration et espaces ; `features/` : interface PLAY/CREATE/MASTER/diagnostics.
+- `src/engine/audio`, `routing`, `recording`, `midi`, `dsp`, `loopPad`, `analysis`, `mastering` : moteurs indépendants de React.
+- `src/storage/` : IndexedDB et projets ; `src/export/` : archive et MIDI ; `src/workers/` : analyse ; encodeur MP3 existant dans `src/audio/`.
+- `src/presets/` : signatures ; `public/*.worklet.js` : collecteurs sur thread audio ; `scripts/build-sw.mjs` : cache PWA.
+- Quelques fichiers `src/lib/` et `src/audio/` restent des façades de compatibilité pour les anciennes importations/tests.
 
-Le panneau « Tester le routage USB · futur LoopPad » contient un module `AudioRouter` indépendant. Il capture une courte prise piano puis enregistre l’entrée pendant l’émission de deux signaux distincts ; aucun son provenant de l’entrée n’est renvoyé vers les enceintes. WAV séparés et rapport JSON sont téléchargeables. Il faut encore confirmer physiquement la sortie sur le piano et vérifier Audio Loopback : voir [le guide de test](docs/AUDIO-ROUTER.md). Le LoopPad lui-même n’est pas implémenté.
+[Audit de départ](docs/AUDIT-DESKTOP.md) · [Recette matériel](docs/ACCEPTANCE.md) · [Feuille de route](docs/ROADMAP.md) · [Provenance/licences](docs/PROVENANCE.md).
+
+Tests locaux : `npm test` et build. Tests navigateur : `npx playwright install chromium chrome msedge`, puis `npm run test:browser` ; les tests audio utilisent de vraies API Web Audio et un **USB/MIDI simulé explicitement dans les seules fixtures QA**. Chrome et Edge sont exécutés sous Linux en CI ; cela ne constitue pas un essai Windows/Yamaha. Aucune simulation n’est injectée dans l’application.
+
+Le changement audible de réverbération sur CLP-825/firmware 1.02 et l’ancien prototype monofichier ont été confirmés par l’utilisateur. Cette version Desktop Studio doit être validée sur le PC et le piano. Pas d’affiliation avec Yamaha. Audit de provenance/licences à terminer avant une distribution commerciale propriétaire.
