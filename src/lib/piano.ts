@@ -52,6 +52,9 @@ export class Piano {
     this.state.message = message;
     this.emit();
   }
+  captureInput(id: string) {
+    return this.access?.inputs.get(id);
+  }
   async authorize() {
     try {
       if (!navigator.requestMIDIAccess)

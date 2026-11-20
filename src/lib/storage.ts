@@ -1,6 +1,11 @@
 import { openDB, type DBSchema } from "idb";
-import type { Chunk, Pcm, Take } from "./types";
+import type { Chunk, Pcm, Take, MidiPacket } from "./types";
 interface Schema extends DBSchema {
+  midi: {
+    key: [string, number];
+    value: MidiPacket;
+    indexes: { "by-take": string };
+  };
   takes: { key: string; value: Take };
   chunks: {
     key: [string, number];
@@ -10,13 +15,21 @@ interface Schema extends DBSchema {
 }
 let connection: ReturnType<typeof openDB<Schema>> | undefined;
 function database() {
-  return (connection ??= openDB<Schema>("mypianow", 1, {
-    upgrade(db) {
-      db.createObjectStore("takes", { keyPath: "id" });
-      const chunks = db.createObjectStore("chunks", {
-        keyPath: ["takeId", "index"],
-      });
-      chunks.createIndex("by-take", "takeId");
+  return (connection ??= openDB<Schema>("mypianow", 2, {
+    upgrade(db, oldVersion) {
+      if (oldVersion < 1) {
+        db.createObjectStore("takes", { keyPath: "id" });
+        const chunks = db.createObjectStore("chunks", {
+          keyPath: ["takeId", "index"],
+        });
+        chunks.createIndex("by-take", "takeId");
+      }
+      if (oldVersion < 2) {
+        const midi = db.createObjectStore("midi", {
+          keyPath: ["takeId", "index"],
+        });
+        midi.createIndex("by-take", "takeId");
+      }
     },
   }));
 }
@@ -52,11 +65,19 @@ export async function readPcm(take: Take): Promise<Pcm> {
   return { channels, rate: take.rate };
 }
 export async function deleteTake(id: string) {
-  const tx = (await database()).transaction(["takes", "chunks"], "readwrite");
+  const tx = (await database()).transaction(
+    ["takes", "chunks", "midi"],
+    "readwrite",
+  );
   let cursor = await tx.objectStore("chunks").index("by-take").openCursor(id);
   while (cursor) {
     await cursor.delete();
     cursor = await cursor.continue();
+  }
+  let notes = await tx.objectStore("midi").index("by-take").openCursor(id);
+  while (notes) {
+    await notes.delete();
+    notes = await notes.continue();
   }
   await tx.objectStore("takes").delete(id);
   await tx.done;
@@ -71,6 +92,7 @@ async function recoverUnlocked() {
         take.id,
       );
       const frames = chunks.reduce((n, c) => n + c.frames, 0);
+      if (take.midi) take.midi.eventCount = (await readMidi(take.id)).length;
       await connection.put("takes", { ...take, frames, status: "interrupted" });
     }
 }
@@ -85,4 +107,15 @@ export async function recoverTakes() {
       },
     );
   else await recoverUnlocked();
+}
+
+export async function saveMidiBatch(events: MidiPacket[]) {
+  const tx = (await database()).transaction("midi", "readwrite");
+  await Promise.all(events.map((event) => tx.store.put(event)));
+  await tx.done;
+}
+export async function readMidi(id: string): Promise<MidiPacket[]> {
+  return (await (await database()).getAllFromIndex("midi", "by-take", id)).sort(
+    (a, b) => a.index - b.index,
+  );
 }

@@ -28,6 +28,18 @@ export type Take = {
   channels: number;
   frames: number;
   status: "recording" | "ready" | "interrupted";
+  capture?: {
+    source: string;
+    inputLatency?: number;
+    audioStartMs?: number;
+    clock: "estimated";
+  };
+  midi?: {
+    name: string;
+    eventCount: number;
+    offsetMs: number;
+    interrupted?: boolean;
+  };
   native?: { model: string; effect?: number; depth?: number };
   fx: Fx;
   preset: Preset;
@@ -83,3 +95,10 @@ for (const [preset, fx] of Object.entries(PRESETS)) {
   fx.ceiling = -1;
 }
 export const cloneFx = (fx: Fx): Fx => structuredClone(fx);
+
+export type MidiPacket = {
+  takeId: string;
+  index: number;
+  timeMs: number;
+  data: number[];
+};

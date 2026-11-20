@@ -1,5 +1,12 @@
-import { readPcm, saveChunk, saveTake } from "./storage";
-import { PRESETS, type Take } from "./types";
+import { channelMessage, midiTime } from "./midi";
+import {
+  readPcm,
+  saveChunk,
+  saveTake,
+  saveMidiBatch,
+  readMidi,
+} from "./storage";
+import { PRESETS, cloneFx, type Take, type MidiPacket } from "./types";
 export const isUsb = (d: { deviceId: string; label: string }) =>
   d.deviceId !== "default" &&
   !!d.deviceId &&
@@ -23,6 +30,58 @@ export async function audioDevices() {
   );
 }
 export class Recorder {
+  private midiInput?: MIDIInput;
+  private midiBuffer: MidiPacket[] = [];
+  private midiIndex = 0;
+  private midiTimer?: ReturnType<typeof setInterval>;
+  private midiFailure?: Error;
+  onMidi?: (count: number) => void;
+  private receiveMidi = (event: MIDIMessageEvent) => {
+    if (!this.take || !event.data) return;
+    const data = channelMessage(event.data);
+    if (!data) return;
+    this.midiBuffer.push({
+      takeId: this.take.id,
+      index: this.midiIndex++,
+      timeMs: midiTime(event.timeStamp),
+      data,
+    });
+    this.onMidi?.(this.midiIndex);
+    if (this.midiBuffer.length >= 512) this.flushMidi();
+  };
+  private midiState = () => {
+    if (
+      this.midiInput?.state === "disconnected" &&
+      !this.ending &&
+      !this.disposed
+    ) {
+      if (this.take?.midi) this.take.midi.interrupted = true;
+      this.onInterrupted?.(
+        "Connexion MIDI perdue. Prise interrompue, blocs sauvegardés conservés.",
+      );
+    }
+  };
+  private flushMidi() {
+    const batch = this.midiBuffer.splice(0);
+    if (!batch.length) return;
+    this.queue = this.queue.then(async () => {
+      if (this.midiFailure) return;
+      try {
+        await saveMidiBatch(batch);
+      } catch (error) {
+        this.midiFailure = Error(
+          "Sauvegarde MIDI impossible : " + (error as Error).message,
+        );
+        this.onInterrupted?.(this.midiFailure.message);
+      }
+    });
+  }
+  private detachMidi() {
+    clearInterval(this.midiTimer);
+    this.midiInput?.removeEventListener("midimessage", this.receiveMidi);
+    this.midiInput?.removeEventListener("statechange", this.midiState);
+    this.flushMidi();
+  }
   private disposed = false;
   private releaseLock?: () => void;
   private stream?: MediaStream;
@@ -41,7 +100,11 @@ export class Recorder {
   take?: Take;
   onMeter?: (peak: number, seconds: number) => void;
   onInterrupted?: (reason: string) => void;
-  async start(device: MediaDeviceInfo, native?: Take["native"]) {
+  async start(
+    device: MediaDeviceInfo,
+    native?: Take["native"],
+    midiInput?: MIDIInput,
+  ) {
     if (!isUsb(device)) throw Error("Sélectionne une entrée USB reconnue.");
     try {
       if (navigator.locks)
@@ -93,10 +156,33 @@ export class Recorder {
         frames: 0,
         status: "recording",
         native,
-        fx: { ...PRESETS.naturel },
+        capture: {
+          source: track.label,
+          inputLatency: (settings as MediaTrackSettings & { latency?: number })
+            .latency,
+          clock: "estimated",
+        },
+        midi: midiInput
+          ? {
+              name: midiInput.name || "Entrée MIDI",
+              eventCount: 0,
+              offsetMs: 0,
+            }
+          : undefined,
+        fx: cloneFx(PRESETS.naturel),
         preset: "naturel",
       };
       await saveTake(this.take);
+      if (midiInput) {
+        await midiInput.open();
+        this.midiInput = midiInput;
+        midiInput.addEventListener("midimessage", this.receiveMidi);
+        midiInput.addEventListener("statechange", this.midiState);
+        this.midiTimer = setInterval(() => this.flushMidi(), 250);
+      }
+      const before = performance.now();
+      const contextTime = this.ctx.currentTime;
+      const clockOrigin = (before + performance.now()) / 2 - contextTime * 1000;
       this.node = new AudioWorkletNode(this.ctx, "usb-capture", {
         channelCount: channels,
         channelCountMode: "explicit",
@@ -109,6 +195,19 @@ export class Recorder {
       this.source.connect(this.node);
       this.node.connect(this.ctx.destination);
       this.node.port.onmessage = (e) => {
+        if (Number.isFinite(e.data.startFrame) && this.take?.capture) {
+          this.take.capture.audioStartMs =
+            clockOrigin + (e.data.startFrame / this.take.rate) * 1000;
+          const snapshot = structuredClone(this.take);
+          this.queue = this.queue.then(async () => {
+            try {
+              await saveTake(snapshot);
+            } catch (error) {
+              this.failure = error as Error;
+              this.onInterrupted?.("Horodatage non sauvegardé.");
+            }
+          });
+        }
         if (e.data.pcm) {
           const pcm = e.data.pcm as Float32Array[];
           let peak = 0;
@@ -124,8 +223,8 @@ export class Recorder {
           };
           this.queued++;
           this.queue = this.queue.then(async () => {
-            if (this.failure) return;
             try {
+              if (this.failure) return;
               await saveChunk(chunk);
             } catch (e) {
               this.failure = Error(
@@ -168,7 +267,19 @@ export class Recorder {
         /* Optional screen lock. */
       }
     } catch (e) {
-      await this.cleanup();
+      this.detachMidi();
+      await this.queue;
+      try {
+        if (this.take) {
+          this.take.status = "interrupted";
+          this.take.frames = this.frames;
+          if (this.take.midi)
+            this.take.midi.eventCount = (await readMidi(this.take.id)).length;
+          await saveTake(this.take);
+        }
+      } finally {
+        await this.cleanup();
+      }
       throw e;
     }
   }
@@ -188,12 +299,16 @@ export class Recorder {
         };
         this.node?.port.postMessage("stop");
       });
+    this.detachMidi();
     await this.queue;
-    await this.cleanup();
     const result = {
       ...this.take,
       frames: this.frames,
-      status: (reason || this.failure
+      status: (reason ||
+      this.failure ||
+      this.midiFailure ||
+      !this.frames ||
+      this.take.capture?.audioStartMs === undefined
         ? "interrupted"
         : "ready") as Take["status"],
     };
@@ -206,11 +321,19 @@ export class Recorder {
         result.frames = 0;
       }
     }
-    await saveTake(result);
+    try {
+      if (result.midi)
+        result.midi.eventCount = (await readMidi(result.id)).length;
+      await saveTake(result);
+    } finally {
+      await this.cleanup();
+    }
     return result;
   }
   private async cleanup() {
     this.disposed = true;
+    this.detachMidi();
+    await this.queue;
     this.releaseLock?.();
     this.releaseLock = undefined;
     this.stream?.getTracks().forEach((t) => t.stop());

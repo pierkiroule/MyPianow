@@ -58,3 +58,7 @@ Le build produit `dist/`, servi par tout hébergeur statique. Configuration Verc
 `npm test` couvre le protocole, le refus des entrées non USB, l’intégrité WAV, l’encodage MP3 effectif, les crêtes/stéréo, les presets, la récupération IndexedDB et le collecteur AudioWorklet. `npm run build` vérifie TypeScript et produit la PWA. Les tests matériels et le partage natif doivent être complétés sur Android/Chrome et le piano.
 
 L’application ne contient ni compte, ni paiement, ni analytics, ni backend. Elle n’est pas affiliée à Yamaha.
+
+### Capture audio + MIDI (P1)
+
+L’enregistrement peut conserver les notes, vélocités et pédales du port MIDI choisi en même temps que le PCM USB. Les deux flux sont sauvegardés localement, sans génération de son à partir du MIDI. Une vue de notes, un décalage ajustable et un export JSON permettent le diagnostic. La correspondance des horloges est **estimée**, sans compensation mesurée de la latence matérielle. La vraie stéréo et la capture simultanée restent à valider sur CLP-825/Android. Voir [la feuille de route](docs/ROADMAP.md) pour distinguer les fonctions disponibles du mastering audio/MIDI à développer.

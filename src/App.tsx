@@ -1,3 +1,4 @@
+import { noteTimeline } from "./lib/midi";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { Piano, type PianoState } from "./lib/piano";
 import { REVERBS, unpack } from "./lib/protocol";
@@ -5,6 +6,7 @@ import { Recorder, audioDevices } from "./lib/recorder";
 import {
   listTakes,
   readPcm,
+  readMidi,
   recoverTakes,
   saveTake,
   deleteTake,
@@ -16,6 +18,7 @@ import {
   type Pcm,
   type Fx,
   type Preset,
+  type MidiPacket,
 } from "./lib/types";
 import { renderPcm } from "./lib/effects";
 import { encodeMp3 } from "./lib/mp3";
@@ -72,6 +75,9 @@ export default function App() {
     [install, setInstall] = useState<InstallPrompt | null>(null),
     [update, setUpdate] = useState<ServiceWorker | null>(null),
     [storageInfo, setStorageInfo] = useState("");
+  const [captureMidi, setCaptureMidi] = useState(true);
+  const [midiCount, setMidiCount] = useState(0);
+  const [midiEvents, setMidiEvents] = useState<MidiPacket[]>([]);
   const [format, setFormat] = useState<"wav" | "mp3">("wav"),
     [mp3, setMp3] = useState<Blob | null>(null),
     [exportBusy, setExportBusy] = useState(false),
@@ -185,13 +191,18 @@ export default function App() {
     player.current?.pause();
     setSelected(take);
     setRaw(null);
+    setMidiEvents([]);
     setOriginal(null);
     setMaster(null);
     setWorking(true);
     try {
-      const pcm = await readPcm(take);
+      const [pcm, events] = await Promise.all([
+        readPcm(take),
+        readMidi(take.id),
+      ]);
       if (id !== loadId.current) return;
       setRaw(pcm);
+      setMidiEvents(events);
       setTab("studio");
       setNotice(
         take.status === "interrupted"
@@ -252,6 +263,8 @@ export default function App() {
     setPhase("opening");
     const rec = new Recorder();
     recorder.current = rec;
+    setMidiCount(0);
+    rec.onMidi = setMidiCount;
     rec.onMeter = (p, s) => {
       setPeak(p);
       setSeconds(s);
@@ -262,7 +275,11 @@ export default function App() {
     try {
       const d = devices.find((d) => d.deviceId === deviceId);
       if (!d) throw Error("Choisissez une entrée USB.");
-      await rec.start(d, piano.metadata);
+      await rec.start(
+        d,
+        piano.metadata,
+        captureMidi ? piano.captureInput(inputId) : undefined,
+      );
       if (recorder.current !== rec) return;
       setSeconds(0);
       setPeak(0);
@@ -542,6 +559,45 @@ export default function App() {
                     ↻
                   </button>
                 </div>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={captureMidi}
+                    disabled={active}
+                    onChange={(e) => setCaptureMidi(e.target.checked)}
+                  />
+                  Enregistrer aussi les notes et pédales MIDI
+                </label>
+                {captureMidi && (
+                  <div>
+                    <button
+                      disabled={active || pianoState.busy}
+                      onClick={() => piano.authorize()}
+                    >
+                      Autoriser le MIDI
+                    </button>
+                    <select
+                      aria-label="Entrée MIDI de la prise"
+                      disabled={active}
+                      value={inputId}
+                      onChange={(e) => setInputId(e.target.value)}
+                    >
+                      <option value="">
+                        Audio seul · aucun port MIDI sélectionné
+                      </option>
+                      {pianoState.inputs.map((port) => (
+                        <option key={port.id} value={port.id}>
+                          {port.name}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="small">
+                      {active
+                        ? `${midiCount} événements MIDI reçus`
+                        : "Le MIDI guide l’analyse future. Il ne génère aucun son. L’audio reste capturable seul."}
+                    </p>
+                  </div>
+                )}
                 <div
                   className={
                     "record-display " +
@@ -1095,6 +1151,110 @@ export default function App() {
                       />
                     ))}
                   </svg>
+                  {selected.midi && (
+                    <details>
+                      <summary>
+                        Notes, pédales et synchronisation ·{" "}
+                        {selected.midi.eventCount} événements
+                      </summary>
+                      <p className="small">
+                        {selected.midi.name} ·{" "}
+                        {selected.channels === 2
+                          ? "Deux canaux audio reçus"
+                          : "Audio mono reçu"}
+                        . Horloge commune estimée ; latence physique non
+                        mesurée. Les durées représentent les touches, pas la
+                        résonance avec pédale.
+                      </p>
+                      {selected.capture?.audioStartMs === undefined && (
+                        <p>
+                          Origine audio indisponible : alignement non établi.
+                        </p>
+                      )}
+                      <svg
+                        viewBox="0 0 640 100"
+                        role="img"
+                        aria-label="Notes MIDI alignées sur la durée de l’audio"
+                        style={{ width: "100%", background: "#edf4ee" }}
+                      >
+                        {noteTimeline(midiEvents, selected).map((note, i) => {
+                          const duration = selected.frames / selected.rate || 1;
+                          const start = Math.max(0, note.start),
+                            end = Math.min(duration, note.end);
+                          return (
+                            end > start && (
+                              <rect
+                                key={i}
+                                x={(start / duration) * 640}
+                                y={((108 - note.pitch) / 88) * 94}
+                                width={Math.max(
+                                  1,
+                                  ((end - start) / duration) * 640,
+                                )}
+                                height="3"
+                                fill={note.truncated ? "#c87965" : "#44735b"}
+                              />
+                            )
+                          );
+                        })}
+                      </svg>
+                      <label>
+                        Décalage MIDI : {selected.midi.offsetMs} ms (positif =
+                        plus tard)
+                        <input
+                          type="range"
+                          min="-300"
+                          max="300"
+                          step="1"
+                          value={selected.midi.offsetMs}
+                          disabled={active || exportBusy}
+                          onChange={(e) =>
+                            void editTake({
+                              ...selected,
+                              midi: {
+                                ...selected.midi!,
+                                offsetMs: Number(e.target.value),
+                              },
+                            })
+                          }
+                        />
+                      </label>
+                      <p className="small">
+                        {
+                          midiEvents.filter(
+                            (e) =>
+                              (e.data[0] & 0xf0) === 0xb0 &&
+                              [64, 66, 67].includes(e.data[1]),
+                          ).length
+                        }{" "}
+                        événements de pédales. Les messages originaux restent
+                        intacts ; ce décalage ne modifie que leur placement.
+                      </p>
+                      <button
+                        onClick={() =>
+                          download(
+                            new Blob(
+                              [
+                                JSON.stringify(
+                                  {
+                                    version: 1,
+                                    take: selected,
+                                    events: midiEvents,
+                                  },
+                                  null,
+                                  2,
+                                ),
+                              ],
+                              { type: "application/json" },
+                            ),
+                            selected.title + "-midi.json",
+                          )
+                        }
+                      >
+                        Exporter le diagnostic audio/MIDI
+                      </button>
+                    </details>
+                  )}
                   <audio
                     onLoadedMetadata={() => {
                       const a = player.current;

@@ -7,6 +7,8 @@ import {
   recoverTakes,
   listTakes,
   deleteTake,
+  saveMidiBatch,
+  readMidi,
 } from "./storage";
 import { PRESETS, type Take } from "./types";
 beforeAll(() => {
@@ -41,10 +43,18 @@ describe("local take recovery", () => {
       channels: [new Float32Array([0.1, 0.2]).buffer],
       frames: 2,
     });
+    take.midi = { name: "USB MIDI", eventCount: 0, offsetMs: 0 };
+    await saveTake(take);
+    await saveMidiBatch([
+      { takeId: take.id, index: 1, timeMs: 100, data: [0xb0, 64, 80] },
+      { takeId: take.id, index: 0, timeMs: 90, data: [0x90, 60, 100] },
+    ]);
     await recoverTakes();
     const recovered = (await listTakes()).find((t) => t.id === take.id)!;
     expect(recovered.status).toBe("interrupted");
     expect(recovered.frames).toBe(3);
+    expect(recovered.midi?.eventCount).toBe(2);
+    expect((await readMidi(take.id))[0].index).toBe(0);
     const pcm = await readPcm(recovered);
     expect(Array.from(pcm.channels[0])).toEqual(
       expect.arrayContaining([
@@ -57,6 +67,7 @@ describe("local take recovery", () => {
     await deleteTake(take.id);
     expect((await listTakes()).find((t) => t.id === take.id)).toBeUndefined();
     await expect(readPcm(take)).rejects.toThrow();
+    expect(await readMidi(take.id)).toEqual([]);
   });
   it("does not recover a recording owned by another tab", async () => {
     const take: Take = {
