@@ -1,0 +1,32 @@
+{
+  "id": "./",
+  "name": "MyPianow •° — Desktop Studio",
+  "short_name": "MyPianow",
+  "description": "Studio piano local : jouer, composer, enregistrer et masteriser sur PC.",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f7faf6",
+  "theme_color": "#f7faf6",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
