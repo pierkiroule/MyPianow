@@ -54,6 +54,7 @@ export type Take = {
   accompaniment?: {
     project: LoopProject;
     offsetSeconds: number;
+    adjustmentMs?: number;
     include: boolean;
   };
   native?: { model: string; effect?: number; depth?: number };

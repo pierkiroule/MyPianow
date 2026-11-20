@@ -227,6 +227,12 @@ export async function importProject(
     if (take.accompaniment) {
       validateProject(take.accompaniment.project);
       if (
+        take.accompaniment.adjustmentMs !== undefined &&
+        (!Number.isFinite(take.accompaniment.adjustmentMs) ||
+          Math.abs(take.accompaniment.adjustmentMs) > 500)
+      )
+        throw Error("Décalage d’accompagnement invalide.");
+      if (
         !Number.isFinite(take.accompaniment.offsetSeconds) ||
         Math.abs(take.accompaniment.offsetSeconds) > 86400 ||
         typeof take.accompaniment.include !== "boolean"
@@ -362,14 +368,12 @@ export async function importProject(
         frame += 4096, index++
       ) {
         const frames = Math.min(4096, importedTake.frames - frame);
-        await tx
-          .objectStore("chunks")
-          .put({
-            takeId: importedTake.id,
-            index,
-            frames,
-            channels: pcm.map((c) => c.slice(frame * 4, (frame + frames) * 4)),
-          });
+        await tx.objectStore("chunks").put({
+          takeId: importedTake.id,
+          index,
+          frames,
+          channels: pcm.map((c) => c.slice(frame * 4, (frame + frames) * 4)),
+        });
       }
       for (const event of events) await tx.objectStore("midi").put(event);
     }

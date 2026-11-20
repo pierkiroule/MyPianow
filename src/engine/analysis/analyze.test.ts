@@ -1,3 +1,4 @@
+import { rmsOverWindow } from "./level";
 import { describe, it, expect } from "vitest";
 import { analyze } from "./analyze";
 import { stereoEvidence } from "./stereo";
@@ -75,4 +76,18 @@ describe("bounded algorithmic mastering", () => {
       stereoEvidence({ rate, channels: [a, a.map((v) => -v)] }).correlation,
     ).toBeCloseTo(-1);
   });
+});
+
+it("matches comparison levels on the same musical interval rather than diluting RMS with the reverb tail", () => {
+  const original = {
+    rate: 48000,
+    channels: [new Float32Array(1000).fill(0.1)],
+  };
+  const processed = { rate: 48000, channels: [new Float32Array(10000)] };
+  processed.channels[0].fill(0.2, 0, 1000);
+  const source = rmsOverWindow(original),
+    master = rmsOverWindow(processed, 1000);
+  expect(master / source).toBeCloseTo(2);
+  expect(master).toBeCloseTo(0.2);
+  expect(rmsOverWindow(processed)).toBeLessThan(source);
 });

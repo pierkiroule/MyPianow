@@ -35,7 +35,12 @@ async function fixture() {
     fx: cloneFx(PRESETS.intime),
     capture: { source: "Clavinova", clock: "estimated", audioStartMs: 1000 },
     midi: { name: "MIDI", eventCount: 2, offsetMs: 20 },
-    accompaniment: { project, offsetSeconds: 0.2, include: false },
+    accompaniment: {
+      project,
+      offsetSeconds: 0.2,
+      adjustmentMs: 125,
+      include: false,
+    },
   };
   await saveTake(take);
   for (let index = 0; index < 2; index++)
@@ -60,6 +65,7 @@ describe("portable local projects", () => {
     expect(imported.project!.id).not.toBe(project.id);
     expect(imported.take!.fx).toEqual(take.fx);
     expect(imported.take!.accompaniment!.offsetSeconds).toBe(0.2);
+    expect(imported.take!.accompaniment!.adjustmentMs).toBe(125);
     expect((await readPcm(imported.take!)).channels[0]).toEqual(
       (await readPcm(take)).channels[0],
     );

@@ -1,5 +1,9 @@
 import type { Pcm } from "../../lib/types";
-export function levelInWorker(pcm: Pcm, signal: AbortSignal): Promise<number> {
+export function levelInWorker(
+  pcm: Pcm,
+  signal: AbortSignal,
+  frames = pcm.channels[0].length,
+): Promise<number> {
   if (signal.aborted)
     return Promise.reject(new DOMException("Annulé", "AbortError"));
   return new Promise((resolve, reject) => {
@@ -30,7 +34,7 @@ export function levelInWorker(pcm: Pcm, signal: AbortSignal): Promise<number> {
       finish();
       reject(Error(event.message));
     };
-    const channels = pcm.channels.map((c) => c.slice());
+    const channels = pcm.channels.map((c) => c.slice(0, frames));
     worker.postMessage(
       { mode: "level", pcm: { rate: pcm.rate, channels } },
       channels.map((c) => c.buffer),

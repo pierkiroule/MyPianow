@@ -1,3 +1,4 @@
+import { rmsOverWindow } from "../engine/analysis/level";
 import { analyzeProbe } from "../engine/routing/routeProbe";
 import { stereoEvidence } from "../engine/analysis/stereo";
 /// <reference lib="webworker" />
@@ -7,14 +8,7 @@ self.onmessage = async (event) => {
     self.postMessage({
       result:
         event.data.mode === "level"
-          ? Math.sqrt(
-              (event.data.pcm.channels as Float32Array[]).reduce(
-                (sum, channel) => sum + channel.reduce((n, v) => n + v * v, 0),
-                0,
-              ) /
-                (event.data.pcm.channels[0].length *
-                  event.data.pcm.channels.length),
-            )
+          ? rmsOverWindow(event.data.pcm)
           : event.data.mode === "probe"
             ? await analyzeProbe(
                 event.data.pcm,

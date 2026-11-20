@@ -1,3 +1,4 @@
+import { AccompanimentMixer } from "../features/master/AccompanimentMixer";
 import { DeviceControls } from "../features/play/DeviceControls";
 import { StudioDiagnostics } from "../features/diagnostics/StudioDiagnostics";
 import { LoopPad } from "../features/create/LoopPad";
@@ -252,7 +253,8 @@ export default function App() {
           raw,
           accompaniment.project,
           assets,
-          accompaniment.offsetSeconds,
+          accompaniment.offsetSeconds -
+            (accompaniment.adjustmentMs || 0) / 1000,
         ),
       )
       .then((result) => {
@@ -424,7 +426,7 @@ export default function App() {
             );
             const [sourceLevel, masterLevel] = await Promise.all([
               levelInWorker(mixSource, abort.signal),
-              levelInWorker(result, abort.signal),
+              levelInWorker(result, abort.signal, mixSource.channels[0].length),
             ]);
             if (!abort.signal.aborted)
               setLevels({ source: sourceLevel, master: masterLevel });
@@ -1251,6 +1253,16 @@ export default function App() {
                       Inclure l’accompagnement au mix final (désactiver si déjà
                       présent dans l’USB)
                     </label>
+                  )}
+                  {selected.accompaniment && (
+                    <AccompanimentMixer
+                      key={selected.id}
+                      value={selected.accompaniment}
+                      disabled={studioLocked || working}
+                      onChange={(accompaniment) =>
+                        void editTake({ ...selected, accompaniment })
+                      }
+                    />
                   )}
                   {mixSource && (
                     <IntelligentMaster

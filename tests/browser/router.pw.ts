@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { installUsbFixture } from "./usbFixture";
 import { test, expect } from "@playwright/test";
 import assert from "node:assert/strict";
@@ -45,10 +46,7 @@ test("isolated USB route, absent/present loopback, downloads and emergency stop"
     })
     .click();
   await page
-    .getByText(
-      "Aucun retour détecté · confirmer encore l’écoute sur le piano et la source du WAV.",
-      { exact: true },
-    )
+    .getByRole("button", { name: "WAV reçu pendant le test", exact: true })
     .waitFor({ timeout: 12000 });
   const reportDownload = page.waitForEvent("download");
   await page
@@ -56,6 +54,18 @@ test("isolated USB route, absent/present loopback, downloads and emergency stop"
     .click();
   const report = await reportDownload;
   await report.saveAs(testInfo.outputPath("report-no-return.json"));
+  const noReturn = JSON.parse(
+    await readFile(testInfo.outputPath("report-no-return.json"), "utf8"),
+  );
+  if (noReturn.duplex.gaps > 0) {
+    assert.equal(noReturn.duplex.analysis.verdict, "inconclusive");
+    await expect(
+      page.getByText("Résultat indéterminé · refaire le test.", {
+        exact: true,
+      }),
+    ).toBeVisible();
+  } else assert.equal(noReturn.duplex.analysis.verdict, "not-detected");
+
   await page
     .getByRole("button", { name: "Fermer le diagnostic", exact: true })
     .click();
@@ -82,10 +92,7 @@ test("isolated USB route, absent/present loopback, downloads and emergency stop"
     })
     .click();
   await page
-    .getByText(
-      "Retour détecté · ne pas mélanger une seconde fois les boucles.",
-      { exact: true },
-    )
+    .getByRole("button", { name: "WAV reçu pendant le test", exact: true })
     .waitFor({ timeout: 12000 });
   await page.screenshot({
     path: testInfo.outputPath("route-mobile.png"),
@@ -98,6 +105,20 @@ test("isolated USB route, absent/present loopback, downloads and emergency stop"
   await (
     await returnedDownload
   ).saveAs(testInfo.outputPath("report-return.json"));
+  const returned = JSON.parse(
+    await readFile(testInfo.outputPath("report-return.json"), "utf8"),
+  );
+  // Clock discontinuities are real observations, even with a simulated USB source.
+  // An inconclusive capture must never be reported as a validated no-loopback route.
+  if (returned.duplex.gaps > 0) {
+    assert.equal(returned.duplex.analysis.verdict, "inconclusive");
+    await expect(
+      page.getByText("Résultat indéterminé · refaire le test.", {
+        exact: true,
+      }),
+    ).toBeVisible();
+  } else assert.equal(returned.duplex.analysis.verdict, "returned");
+
   await page
     .getByRole("button", {
       name: "2. Tester émission et retour · 6 s",
