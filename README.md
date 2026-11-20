@@ -62,3 +62,7 @@ L’application ne contient ni compte, ni paiement, ni analytics, ni backend. El
 ### Capture audio + MIDI (P1)
 
 L’enregistrement peut conserver les notes, vélocités et pédales du port MIDI choisi en même temps que le PCM USB. Les deux flux sont sauvegardés localement, sans génération de son à partir du MIDI. Une vue de notes, un décalage ajustable et un export JSON permettent le diagnostic. La correspondance des horloges est **estimée**, sans compensation mesurée de la latence matérielle. La vraie stéréo et la capture simultanée restent à valider sur CLP-825/Android. Voir [la feuille de route](docs/ROADMAP.md) pour distinguer les fonctions disponibles du mastering audio/MIDI à développer.
+
+### Diagnostic USB avant LoopPad
+
+Le panneau « Tester le routage USB · futur LoopPad » contient un module `AudioRouter` indépendant. Il capture une courte prise piano puis enregistre l’entrée pendant l’émission de deux signaux distincts ; aucun son provenant de l’entrée n’est renvoyé vers les enceintes. WAV séparés et rapport JSON sont téléchargeables. Il faut encore confirmer physiquement la sortie sur le piano et vérifier Audio Loopback : voir [le guide de test](docs/AUDIO-ROUTER.md). Le LoopPad lui-même n’est pas implémenté.

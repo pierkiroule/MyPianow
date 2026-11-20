@@ -792,3 +792,22 @@ footer details p {
   margin: 15px 0 0;
   fill: #aac49c;
 }
+.audio-router .button-row {
+  flex-wrap: wrap;
+}
+.audio-router .button-row button {
+  flex: 1 1 150px;
+}
+.audio-router .level {
+  margin: 16px 0;
+}
+.audio-router .check {
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+.audio-router .route-result {
+  padding: 12px;
+  border-radius: 12px;
+  background: #edf4e9;
+  font-size: 0.86rem;
+}

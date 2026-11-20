@@ -5,3 +5,6 @@ dist/
 !.env.example
 .DS_Store
 public/licenses/
+
+playwright-report/
+test-results/

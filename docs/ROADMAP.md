@@ -33,3 +33,8 @@ Disponibles : bibliothèque locale, écoute original/traité, WAV 24 bits, MP3, 
 ## Bluetooth
 
 Ne pas promettre l’enregistrement audio du CLP-825 par Bluetooth : l’audio du piano vers le téléphone doit passer par USB. MIDI Bluetooth utilisable seulement si le système expose un port au navigateur ; pas de pont BLE/GATT implémenté dans cette PWA. Ne pas remettre en place de monitoring USB logiciel sans validation du routage et des boucles.
+
+
+## Brique préalable au futur LoopPad
+
+Un diagnostic `AudioRouter` indépendant teste désormais la capture USB seule et l’émission de deux signaux pendant la capture, sur des bus distincts. Il propose des WAV séparés, une détection indicative du retour et un rapport JSON. Ce n’est pas encore un séquenceur ou un mixeur multipiste. Valider les chemins matériels avec ce diagnostic avant de développer le LoopPad ; voir [AUDIO-ROUTER.md](AUDIO-ROUTER.md).

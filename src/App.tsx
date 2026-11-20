@@ -1,3 +1,4 @@
+import { AudioRouterPanel } from "./components/AudioRouterPanel";
 import { noteTimeline } from "./lib/midi";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { Piano, type PianoState } from "./lib/piano";
@@ -75,6 +76,7 @@ export default function App() {
     [install, setInstall] = useState<InstallPrompt | null>(null),
     [update, setUpdate] = useState<ServiceWorker | null>(null),
     [storageInfo, setStorageInfo] = useState("");
+  const [routerBusy, setRouterBusy] = useState(false);
   const [captureMidi, setCaptureMidi] = useState(true);
   const [midiCount, setMidiCount] = useState(0);
   const [midiEvents, setMidiEvents] = useState<MidiPacket[]>([]);
@@ -258,7 +260,7 @@ export default function App() {
     };
   }, [raw, selected?.id, selected?.fx]);
   async function start() {
-    if (active || working || exportBusy || !deviceId) return;
+    if (active || routerBusy || working || exportBusy || !deviceId) return;
     player.current?.pause();
     setPhase("opening");
     const rec = new Recorder();
@@ -470,7 +472,7 @@ export default function App() {
           </button>
           <button
             className={tab === "takes" ? "active" : ""}
-            disabled={active || exportBusy}
+            disabled={active || exportBusy || routerBusy}
             onClick={() => setTab("takes")}
           >
             Mes créations <span>{takes.length}</span>
@@ -480,7 +482,7 @@ export default function App() {
           <aside className="update">
             Une nouvelle version est prête.{" "}
             <button
-              disabled={active || working || exportBusy}
+              disabled={active || working || exportBusy || routerBusy}
               onClick={() => {
                 update.postMessage({ type: "SKIP_WAITING" });
                 navigator.serviceWorker.addEventListener(
@@ -539,7 +541,7 @@ export default function App() {
                 <div className="input-row">
                   <select
                     id="audio"
-                    disabled={active || exportBusy}
+                    disabled={active || exportBusy || routerBusy}
                     value={deviceId}
                     onChange={(e) => setDeviceId(e.target.value)}
                   >
@@ -552,7 +554,7 @@ export default function App() {
                   </select>
                   <button
                     className="icon-button"
-                    disabled={active || exportBusy}
+                    disabled={active || exportBusy || routerBusy}
                     onClick={scan}
                     aria-label="Chercher les entrées audio USB"
                   >
@@ -644,7 +646,8 @@ export default function App() {
                   disabled={
                     phase === "opening" ||
                     phase === "saving" ||
-                    (!active && (!deviceId || working || exportBusy))
+                    (!active &&
+                      (!deviceId || working || exportBusy || routerBusy))
                   }
                   onClick={() =>
                     phase === "recording" ? void stop() : void start()
@@ -660,6 +663,15 @@ export default function App() {
                 <p className="small centered">
                   3 min par prise · sauvegarde locale au fil du jeu
                 </p>
+                <AudioRouterPanel
+                  device={devices.find((d) => d.deviceId === deviceId)}
+                  disabled={active || working || exportBusy}
+                  onBusy={setRouterBusy}
+                  onPrepare={() => {
+                    previewState.current.resume = false;
+                    player.current?.pause();
+                  }}
+                />
                 <details className="help">
                   <summary>Connexion et conservation des prises</summary>
                   <p>
@@ -675,7 +687,7 @@ export default function App() {
                     exportez celles qui comptent.
                   </p>
                   <button
-                    disabled={active || exportBusy}
+                    disabled={active || exportBusy || routerBusy}
                     onClick={async () => {
                       try {
                         const persisted = await navigator.storage?.persist?.();
@@ -880,7 +892,7 @@ export default function App() {
                   <input
                     className="take-title"
                     aria-label="Titre de la prise"
-                    disabled={active || exportBusy}
+                    disabled={active || exportBusy || routerBusy}
                     value={selected.title}
                     onChange={(e) => {
                       void editTake({ ...selected, title: e.target.value });
@@ -895,7 +907,7 @@ export default function App() {
                     {(Object.keys(PRESETS) as Preset[]).map((p) => (
                       <button
                         key={p}
-                        disabled={active || exportBusy}
+                        disabled={active || exportBusy || routerBusy}
                         className={
                           "preset " + (selected.preset === p ? "selected" : "")
                         }
@@ -915,7 +927,7 @@ export default function App() {
                         placeholder="Nom de mon rendu"
                         maxLength={60}
                         value={customName}
-                        disabled={active || exportBusy}
+                        disabled={active || exportBusy || routerBusy}
                         onChange={(e) => setCustomName(e.target.value)}
                       />
                       <button
@@ -931,7 +943,7 @@ export default function App() {
                         <button
                           className="quiet"
                           key={p.name}
-                          disabled={active || exportBusy}
+                          disabled={active || exportBusy || routerBusy}
                           onClick={() =>
                             editTake({ ...selected, fx: cloneFx(p.fx) })
                           }
@@ -1034,7 +1046,7 @@ export default function App() {
                             min={min}
                             max={max}
                             step={step}
-                            disabled={active || exportBusy}
+                            disabled={active || exportBusy || routerBusy}
                             value={Number(selected.fx[key] ?? 100)}
                             onChange={(e) =>
                               editTake({
@@ -1049,7 +1061,7 @@ export default function App() {
                     <label className="check">
                       <input
                         type="checkbox"
-                        disabled={active || exportBusy}
+                        disabled={active || exportBusy || routerBusy}
                         checked={!!selected.fx.autoLevel}
                         onChange={(e) =>
                           editTake({
@@ -1069,7 +1081,7 @@ export default function App() {
                           min="-24"
                           max="-12"
                           step="1"
-                          disabled={active || exportBusy}
+                          disabled={active || exportBusy || routerBusy}
                           value={selected.fx.targetRms ?? -20}
                           onChange={(e) =>
                             editTake({
@@ -1090,7 +1102,7 @@ export default function App() {
                           min="-3"
                           max="-.3"
                           step=".1"
-                          disabled={active || exportBusy}
+                          disabled={active || exportBusy || routerBusy}
                           value={selected.fx.ceiling ?? -1}
                           onChange={(e) =>
                             editTake({
@@ -1116,12 +1128,14 @@ export default function App() {
                   <div className="compare">
                     <button
                       className={listen === "original" ? "selected" : ""}
+                      disabled={routerBusy}
                       onClick={() => switchListen("original")}
                     >
                       Original USB
                     </button>
                     <button
                       className={listen === "master" ? "selected" : ""}
+                      disabled={routerBusy}
                       onClick={() => switchListen("master")}
                     >
                       Version traitée
@@ -1207,7 +1221,7 @@ export default function App() {
                           max="300"
                           step="1"
                           value={selected.midi.offsetMs}
-                          disabled={active || exportBusy}
+                          disabled={active || exportBusy || routerBusy}
                           onChange={(e) =>
                             void editTake({
                               ...selected,
@@ -1271,7 +1285,7 @@ export default function App() {
                     }}
                     key={selected.id}
                     ref={player}
-                    controls
+                    controls={!routerBusy}
                     src={
                       listen === "original"
                         ? originalUrl

@@ -7,28 +7,8 @@ import {
   readMidi,
 } from "./storage";
 import { PRESETS, cloneFx, type Take, type MidiPacket } from "./types";
-export const isUsb = (d: { deviceId: string; label: string }) =>
-  d.deviceId !== "default" &&
-  !!d.deviceId &&
-  /usb/i.test(d.label) &&
-  !/midi/i.test(d.label);
-export const constraints = (id: string): MediaStreamConstraints => ({
-  video: false,
-  audio: {
-    deviceId: { exact: id },
-    channelCount: { ideal: 2 },
-    echoCancellation: false,
-    noiseSuppression: false,
-    autoGainControl: false,
-  },
-});
-export async function audioDevices() {
-  if (!navigator.mediaDevices?.enumerateDevices)
-    throw Error("Capture audio indisponible. Utilise Chrome en HTTPS.");
-  return (await navigator.mediaDevices.enumerateDevices()).filter(
-    (d) => d.kind === "audioinput" && isUsb(d),
-  );
-}
+import { isUsb, openUsb, captureLock } from "../audio/usb";
+export { isUsb, constraints, audioDevices } from "../audio/usb";
 export class Recorder {
   private midiInput?: MIDIInput;
   private midiBuffer: MidiPacket[] = [];
@@ -107,38 +87,9 @@ export class Recorder {
   ) {
     if (!isUsb(device)) throw Error("Sélectionne une entrée USB reconnue.");
     try {
-      if (navigator.locks)
-        await new Promise<void>((resolve, reject) => {
-          void navigator.locks
-            .request(
-              "mypianow-capture",
-              { ifAvailable: true },
-              async (lock) => {
-                if (!lock) {
-                  reject(Error("Un autre onglet enregistre déjà."));
-                  return;
-                }
-                await new Promise<void>((release) => {
-                  this.releaseLock = release;
-                  resolve();
-                });
-              },
-            )
-            .catch(reject);
-        });
-      this.stream = await navigator.mediaDevices.getUserMedia(
-        constraints(device.deviceId),
-      );
-      const track = this.stream.getAudioTracks()[0],
-        settings = track.getSettings();
-      if (
-        track.readyState !== "live" ||
-        settings.deviceId !== device.deviceId ||
-        !isUsb({ deviceId: settings.deviceId || "", label: track.label })
-      )
-        throw Error(
-          "Source USB non confirmée. Aucun micro de secours ne sera utilisé.",
-        );
+      this.releaseLock = await captureLock();
+      const { stream, track, settings } = await openUsb(device);
+      this.stream = stream;
       this.ctx = new AudioContext({ sampleRate: settings.sampleRate || 48000 });
       await this.ctx.resume();
       if (this.ctx.state !== "running")

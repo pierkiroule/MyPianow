@@ -28,3 +28,16 @@ Non exécuté sur matériel pour cette version React.
 - Débrancher MIDI/USB pendant la prise ; relancer l’app après fermeture forcée. Vérifier récupération des seuls blocs/événements validés, compte MIDI recalculé et notes tronquées signalées.
 - Exporter le JSON de diagnostic. Vérifier notes on/off, vélocités et valeurs continues des pédales. Il ne contient pas les échantillons audio et ne constitue pas un projet complet restaurable.
 - Supprimer une prise, vérifier suppression de ses données audio et MIDI. Ouvrir une ancienne prise sans MIDI et vérifier qu’elle fonctionne toujours.
+
+## Diagnostic AudioRouter — entrée et émission simultanées
+
+- Ouvrir le panneau de diagnostic dans Enregistrer. Choisir uniquement l’entrée USB.
+- Désactiver Audio Loopback sur le CLP-825 (DEMO/SONG + PIANO/VOICE + Do6), noter ce réglage dans le compte rendu matériel.
+- Capturer le piano 5 s, fermer le diagnostic pour écouter le WAV puis confirmer la source.
+- Reconnecter, sans jouer lancer le test 6 s ; noter si les deux signaux sont entendus sur le piano pendant la capture USB. Réexporter le WAV piano si la reconnexion a remis les clips à zéro.
+- Télécharger le PCM reçu, les signaux émis et le diagnostic JSON. Confirmer la source avec une nouvelle prise piano si nécessaire ; les observations concernent uniquement la session actuelle.
+- Avec Audio Loopback désactivé, vérifier si le rapport indique absence de retour, sans assimiler cela à une garantie. Pour un contrôle positif, activer temporairement Audio Loopback (mêmes boutons + Do♯6), refaire le test à bas volume et vérifier la détection des deux signaux ; désactiver ensuite Audio Loopback.
+- Arrêter en cours de signaux puis débrancher/rebrancher le câble ; vérifier l’arrêt de la lecture, la libération de l’USB et la possibilité d’enregistrer normalement ensuite.
+- Masquer la page puis la réafficher ; vérifier qu’aucune lecture ni capture ne redémarre seule. Refaire le test si le routage change.
+
+Voir docs/AUDIO-ROUTER.md pour les seuils, limites et distinctions entre simulation navigateur et matériel réel.
